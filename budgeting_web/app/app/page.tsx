@@ -16,6 +16,23 @@ type DashboardData = {
   accounts: { id: number; name: string; type: string; color: string; balance_cents: number }[];
   expenses_by_category: { categoryId: number; name: string; color: string; cents: number }[];
   cashflow_by_month: { month: string; income: number; expenses: number }[];
+  budgets: {
+    id: number;
+    name: string;
+    amountCents: number;
+    spentCents: number;
+    remainingCents: number;
+    percent: number;
+    status: "on_track" | "warning" | "almost_exceeded" | "exceeded";
+    period: string;
+  }[];
+  budget_alerts: { budgetId: number; label: string; level: string; message: string }[];
+  budget_utilization: {
+    amountCents: number;
+    spentCents: number;
+    percent: number;
+    status: string;
+  } | null;
   meta: { currency: string };
 };
 
@@ -107,6 +124,91 @@ export default function DashboardPage() {
         />
         <SummaryCard label="Balance" cents={data.totals.total_balance_cents} currency={cur} tone="text-slate-900" />
       </section>
+
+      {data.budget_alerts.length > 0 && (
+        <section aria-label="Budget alerts" className="space-y-2">
+          {data.budget_alerts.map((a) => (
+            <div
+              key={a.budgetId}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm ${
+                a.level === "exceeded"
+                  ? "bg-rose-50 text-rose-700"
+                  : a.level === "almost_exceeded"
+                    ? "bg-orange-50 text-orange-700"
+                    : "bg-amber-50 text-amber-700"
+              }`}
+              role={a.level === "exceeded" ? "alert" : "status"}
+            >
+              <span aria-hidden>{a.level === "exceeded" ? "🚨" : "⚠️"}</span>
+              {a.message}
+            </div>
+          ))}
+        </section>
+      )}
+
+      {data.budget_utilization && (
+        <section className="bg-white rounded-2xl border border-slate-200 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-slate-800">Budget utilization</h2>
+            <Link href="/app/budgets" className="text-sm text-emerald-600 hover:underline">
+              Manage budgets
+            </Link>
+          </div>
+          <div className="flex items-baseline justify-between mb-1.5 text-sm">
+            <span className="text-slate-600">
+              {formatMoney(data.budget_utilization.spentCents, cur)}{" "}
+              <span className="text-slate-400">of {formatMoney(data.budget_utilization.amountCents, cur)}</span>
+            </span>
+            <span className="font-medium text-slate-700">
+              {Math.round(data.budget_utilization.percent)}%
+            </span>
+          </div>
+          <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${Math.min(100, data.budget_utilization.percent)}%`,
+                backgroundColor:
+                  data.budget_utilization.status === "exceeded"
+                    ? "#ef4444"
+                    : data.budget_utilization.status === "almost_exceeded"
+                      ? "#f97316"
+                      : data.budget_utilization.status === "warning"
+                        ? "#f59e0b"
+                        : "#22c55e",
+              }}
+            />
+          </div>
+          {data.budgets.length > 0 && (
+            <ul className="mt-4 space-y-2">
+              {data.budgets.slice(0, 4).map((b) => (
+                <li key={b.id} className="flex items-center gap-3 text-sm">
+                  <span className="flex-1 truncate text-slate-600">{b.name}</span>
+                  <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.min(100, b.percent)}%`,
+                        backgroundColor:
+                          b.status === "exceeded"
+                            ? "#ef4444"
+                            : b.status === "almost_exceeded"
+                              ? "#f97316"
+                              : b.status === "warning"
+                                ? "#f59e0b"
+                                : "#22c55e",
+                      }}
+                    />
+                  </div>
+                  <span className="w-10 text-right text-xs text-slate-500 shrink-0">
+                    {Math.round(b.percent)}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <section className="grid md:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-5">

@@ -4,16 +4,19 @@ import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { handle } from "@/lib/http";
 import { resolveRange, type RangePreset, monthBounds, todayKey } from "@/lib/dates";
-import { toCents, fromCents } from "@/lib/money";
+import { toCents } from "@/lib/money";
 import {
   accountBalance,
   cashFlow,
   expensesByCategory,
   totalExpenses,
   totalIncome,
+  budgetUsage,
   type AccountLike,
   type TxLike,
 } from "@/lib/finance";
+import { budgetAlertLevel, alertMessage, budgetLabel } from "@/lib/budgets";
+import { loadBudgetProgress } from "@/lib/budgets-server";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +90,27 @@ export async function GET(request: Request) {
     // upcoming bills placeholder: expense transactions marked recurring this month
     const thisMonth = monthBounds(todayKey());
 
+    // Budget utilization + alerts (Phase 2)
+    const budgets = await loadBudgetProgress(user.id);
+    const budgetAlerts = budgets
+      .filter((b) => b.alert === "warning" || b.alert === "almost_exceeded" || b.alert === "exceeded")
+      .map((b) => ({
+        budgetId: b.id,
+        label: b.name,
+        level: b.alert as "exceeded" | "almost_exceeded" | "warning",
+        message: alertMessage(b.name, b.percent, (c) => `${user.currency} ${c}`, b.amountCents, b.spentCents),
+      }));
+    const overall = budgets.find((b) => !b.categoryId && !b.accountId);
+    const totalBudgetedCents = budgets.reduce((a, b) => a + b.amountCents, 0);
+    const utilization = overall
+      ? budgetUsage(overall.amountCents, overall.spentCents)
+      : totalBudgetedCents > 0
+        ? budgetUsage(
+            totalBudgetedCents,
+            budgets.reduce((a, b) => a + b.spentCents, 0)
+          )
+        : null;
+
     return Response.json({
       success: true,
       data: {
@@ -106,6 +130,25 @@ export async function GET(request: Request) {
         })),
         expenses_by_category: byCategory,
         cashflow_by_month: cashflowByMonth,
+        budgets: budgets.map((b) => ({
+          id: b.id,
+          name: b.name,
+          amountCents: b.amountCents,
+          spentCents: b.spentCents,
+          remainingCents: b.remainingCents,
+          percent: b.percent,
+          status: b.status,
+          period: b.period,
+        })),
+        budget_alerts: budgetAlerts,
+        budget_utilization: utilization
+          ? {
+              amountCents: utilization.cents,
+              spentCents: utilization.spentCents,
+              percent: utilization.percent,
+              status: utilization.status,
+            }
+          : null,
         meta: {
           currency: user.currency,
           current_month: thisMonth,
@@ -115,6 +158,3 @@ export async function GET(request: Request) {
     });
   });
 }
-
-// silence unused import warnings for fromCents (used by future endpoints)
-void fromCents;

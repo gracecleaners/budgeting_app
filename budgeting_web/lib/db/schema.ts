@@ -87,6 +87,35 @@ export const categories = pgTable(
   (t) => [unique("categories_user_name_kind_unique").on(t.userId, t.name, t.kind)]
 );
 
+export const budgets = pgTable(
+  "budgets",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // null categoryId = "overall" budget across all expense categories
+    categoryId: integer("category_id").references(() => categories.id, {
+      onDelete: "cascade",
+    }),
+    // null accountId = budget applies to spending from any account
+    accountId: integer("account_id").references(() => accounts.id, {
+      onDelete: "cascade",
+    }),
+    name: varchar("name", { length: 100 }).notNull().default(""),
+    amountCents: integer("amount_cents").notNull(),
+    // weekly | monthly | custom
+    period: varchar("period", { length: 15 }).notNull().default("monthly"),
+    // inclusive custom window; required when period = custom, ignored otherwise
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("budgets_user_idx").on(t.userId)]
+);
+
 export const transactions = pgTable(
   "transactions",
   {
