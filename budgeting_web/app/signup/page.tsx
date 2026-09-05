@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { setCacheUser } from "@/lib/api";
+
 import { CURRENCIES } from "@/lib/defaults";
 
 export default function SignupPage() {
@@ -30,6 +32,7 @@ export default function SignupPage() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.message ?? "Signup failed");
+      setCacheUser(json.data.id);
       router.replace("/app");
       router.refresh();
     } catch (err) {

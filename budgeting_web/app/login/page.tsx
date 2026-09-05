@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { setCacheUser, clearCache } from "@/lib/api";
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -23,6 +25,8 @@ export default function LoginPage() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.message ?? "Login failed");
+      clearCache();
+      setCacheUser(json.data.id);
       router.replace("/app");
       router.refresh();
     } catch (err) {
