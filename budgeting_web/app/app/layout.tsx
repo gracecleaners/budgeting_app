@@ -8,6 +8,8 @@ export const dynamic = "force-dynamic";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
+  // First-run users go through the onboarding wizard (spec #32)
+  if (!user.onboardedAt) redirect("/app/onboarding");
   return (
     <AppShell user={{ name: user.name, email: user.email, currency: user.currency }}>
       {children}

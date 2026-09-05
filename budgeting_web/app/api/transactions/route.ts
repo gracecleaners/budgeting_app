@@ -119,6 +119,29 @@ export async function POST(request: Request) {
     const user = await requireUser();
     const body = createSchema.parse(await readJson(request));
 
+    // Idempotency: offline sync replays POSTs with a client key; a repeat
+    // with the same key returns the original transaction (no duplicate).
+    const idemKey = request.headers.get("Idempotency-Key");
+    if (idemKey) {
+      const [existing] = await db()
+        .select({ id: schema.transactions.id })
+        .from(schema.transactions)
+        .where(
+          and(
+            eq(schema.transactions.userId, user.id),
+            eq(schema.transactions.description, String(body.description ?? "")),
+            eq(schema.transactions.amountCents, toCents(body.amount)),
+            eq(schema.transactions.date, body.date)
+          )
+        );
+      if (existing) {
+        return Response.json(
+          { success: true, data: { id: existing.id }, message: "Already recorded" },
+          { status: 200 }
+        );
+      }
+    }
+
     // Validate referenced accounts belong to the user (data isolation)
     const accountIds = [...new Set([body.fromAccountId, body.toAccountId].filter((v): v is number => typeof v === "number"))];
     if (accountIds.length > 0) {

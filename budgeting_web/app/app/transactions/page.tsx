@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { api, formatMoney, formatDateKey, ApiClientError } from "@/lib/api";
+import { TxDetailModal } from "./tx-detail";
 
 type Tx = {
   id: number;
@@ -42,6 +43,7 @@ export default function TransactionsPage() {
   const [type, setType] = useState("");
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [detailId, setDetailId] = useState<number | null>(null);
   const searchParams = useSearchParams();
 
   const load = useCallback(async () => {
@@ -154,7 +156,15 @@ export default function TransactionsPage() {
         <>
           <ul className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
             {list.items.map((tx) => (
-              <li key={tx.id} className="flex items-center justify-between gap-3 p-4">
+              <li
+                key={tx.id}
+                className="flex items-center justify-between gap-3 p-4 cursor-pointer active:bg-slate-50 dark:active:bg-slate-700/50"
+                onClick={() => setDetailId(tx.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && setDetailId(tx.id)}
+                aria-label={`Transaction ${tx.description || tx.type}, details`}
+              >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span
@@ -215,6 +225,17 @@ export default function TransactionsPage() {
           onClose={() => setShowAdd(false)}
           onAdded={() => {
             setShowAdd(false);
+            load();
+          }}
+        />
+      )}
+
+      {detailId !== null && (
+        <TxDetailModal
+          id={detailId}
+          currency={currency}
+          onClose={() => {
+            setDetailId(null);
             load();
           }}
         />

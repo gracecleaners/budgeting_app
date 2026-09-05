@@ -1,7 +1,8 @@
 /**
- * API client for the new envelope format ({ success, data, message }) with a
- * per-user localStorage read cache for offline viewing (spec: offline reads).
- * Offline writes will come with the sync phase.
+ * API client for the { success, data, message } envelope.
+ * - GETs fall back to a per-user localStorage cache when offline.
+ * - Failed writes (POST/PATCH/DELETE) are queued in localStorage and
+ *   flushed automatically when connectivity returns (offline sync).
  */
 
 const BASE = "/api";
@@ -17,8 +18,9 @@ export class ApiClientError extends Error {
   }
 }
 
+import { enqueue, flushQueue, queueSize } from "./sync-queue";
+
 function cacheKey(): string {
-  // isolate cache per logged-in user so data never leaks across accounts
   return `${CACHE_KEY}:${localStorage.getItem("fin_user_id") ?? "anon"}`;
 }
 
@@ -45,7 +47,7 @@ function writeCache(path: string, data: unknown): void {
     store[path] = { ts: Date.now(), data };
     localStorage.setItem(cacheKey(), JSON.stringify(store));
   } catch {
-    // storage full/corrupt: cache is best-effort
+    // best-effort
   }
 }
 
@@ -57,11 +59,30 @@ export function clearCache(): void {
   }
 }
 
+/** Human labels for queued writes (shown in the sync UI). */
+function describeWrite(method: string, path: string, body: unknown): string {
+  const b = (body ?? {}) as Record<string, unknown>;
+  if (path.startsWith("/transactions") && method === "POST") {
+    const amt = typeof b.amount === "number" ? b.amount : "?";
+    return `${String(b.type ?? "transaction")} ${amt} — ${String(b.description ?? "")}`;
+  }
+  if (path.includes("/contributions")) return `Savings contribution ${String(b.amount ?? "")}`;
+  if (path.includes("/payments")) return `Debt payment ${String(b.amount ?? "")}`;
+  return `${method} ${path}`;
+}
+
+function isNetworkError(err: unknown): boolean {
+  return err instanceof TypeError;
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   try {
     const res = await fetch(`${BASE}${path}`, {
       method,
-      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      headers:
+        body !== undefined
+          ? { "Content-Type": "application/json" }
+          : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
       credentials: "same-origin",
     });
@@ -72,12 +93,25 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     if (method === "GET") writeCache(path, json);
     return json.data;
   } catch (err) {
-    // offline fallback for GETs: serve last-seen data (read-only offline)
-    if (err instanceof TypeError && method === "GET") {
+    // Offline GET fallback: serve cached data
+    if (isNetworkError(err) && method === "GET") {
       const cached = readCache(path);
       if (cached !== null) return (cached as ApiEnvelope<T>).data;
     }
+    // Offline write: queue it for later sync instead of failing
+    if (isNetworkError(err) && (method === "POST" || method === "PATCH" || method === "DELETE")) {
+      enqueue({ method: method as "POST", path: `${BASE}${path}`, body, description: describeWrite(method, path, body) });
+      throw new OfflineQueuedError(describeWrite(method, path, body));
+    }
     throw err;
+  }
+}
+
+/** Thrown when a write was queued for sync instead of being applied now. */
+export class OfflineQueuedError extends Error {
+  constructor(label: string) {
+    super(`Offline — "${label}" saved on this device and will sync automatically.`);
+    this.name = "OfflineQueuedError";
   }
 }
 
@@ -87,6 +121,16 @@ export const api = {
   patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, body),
   delete: <T>(path: string) => request<T>("DELETE", path),
 };
+
+/** Flush pending offline writes; returns counts for UI display. */
+export async function syncNow(): Promise<{ sent: number; failed: number; remaining: number }> {
+  const { sent, failed } = await flushQueue();
+  return { sent, failed, remaining: queueSize() };
+}
+
+export function pendingWrites(): number {
+  return queueSize();
+}
 
 export function formatMoney(cents: number, currency = "UGX"): string {
   const abs = Math.abs(cents) / 100;

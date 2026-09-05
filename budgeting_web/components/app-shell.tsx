@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { api, clearCache, setCacheUser } from "@/lib/api";
+import { api, clearCache, setCacheUser, syncNow, pendingWrites } from "@/lib/api";
 import { restoreTheme, applyTheme, type Theme } from "@/lib/client";
 
 const NAV = [
@@ -32,16 +32,34 @@ export function AppShell({
   const router = useRouter();
   const [unread, setUnread] = useState(0);
   const [theme, setTheme] = useState<Theme>("system");
+  const [pending, setPending] = useState(0);
+  const [online, setOnline] = useState(true);
 
   useEffect(() => {
     restoreTheme();
     setTheme((localStorage.getItem("fin_theme") as Theme) ?? "system");
+    setPending(pendingWrites());
+    setOnline(navigator.onLine);
     // generate today's alerts + get unread count for the badge
     api
       .post("/notifications")
       .then(() => api.get<{ unread: number }>("/notifications"))
       .then((d) => setUnread(d.unread))
       .catch(() => {});
+
+    // Offline write sync: flush the queue when we come back online
+    const onOnline = async () => {
+      setOnline(true);
+      const { remaining } = await syncNow();
+      setPending(remaining);
+    };
+    const onOffline = () => setOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
   }, []);
 
   useEffect(() => {
@@ -119,6 +137,11 @@ export function AppShell({
         <div className="md:hidden flex items-center justify-between px-4 pt-4">
           <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Budget Tracker</p>
           <div className="flex items-center gap-3">
+            {!online && (
+              <span className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-1 rounded-full font-medium">
+                Offline{pending > 0 ? ` · ${pending} queued` : ""}
+              </span>
+            )}
             <button onClick={cycleTheme} aria-label="Toggle theme" className="text-lg">
               {themeIcon}
             </button>

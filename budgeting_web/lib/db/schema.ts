@@ -247,6 +247,26 @@ export const subscriptions = pgTable(
   (t) => [index("subscriptions_user_idx").on(t.userId)]
 );
 
+/** Receipt/photo/PDF attachments linked to a transaction. */
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    transactionId: integer("transaction_id")
+      .notNull()
+      .references(() => transactions.id, { onDelete: "cascade" }),
+    filename: varchar("filename", { length: 255 }).notNull(),
+    mimeType: varchar("mime_type", { length: 100 }).notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    data: text("data").notNull(), // base64; small receipts only (<=2MB)
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("attachments_tx_idx").on(t.transactionId)]
+);
+
 export const notifications = pgTable(
   "notifications",
   {

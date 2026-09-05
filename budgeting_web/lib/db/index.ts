@@ -1,5 +1,5 @@
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { Pool } from "@neondatabase/serverless";
 
 import * as schema from "./schema";
 
@@ -12,7 +12,11 @@ function createDb() {
       "DATABASE_URL is not set. Add it to .env.local (or your Netlify env vars)."
     );
   }
-  return drizzle(neon(url), { schema });
+  // Pool (websocket) driver — required for db.transaction() support
+  // (savings contributions and debt payments use atomic transactions).
+  // Works locally and on Netlify functions.
+  const pool = new Pool({ connectionString: url, max: 5 });
+  return drizzle(pool, { schema });
 }
 
 export function db() {

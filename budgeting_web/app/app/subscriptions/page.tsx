@@ -82,9 +82,9 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Subscriptions</h1>
-        <button onClick={() => setShowAdd(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700">
+        <button onClick={() => setShowAdd(true)} className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 shrink-0 min-h-11">
           + Add
         </button>
       </header>

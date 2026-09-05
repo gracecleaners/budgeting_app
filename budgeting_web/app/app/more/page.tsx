@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-import { api, setCacheUser, clearCache, ApiClientError } from "@/lib/api";
+import { api, setCacheUser, clearCache, ApiClientError, syncNow, pendingWrites } from "@/lib/api";
+import { readQueue } from "@/lib/sync-queue";
 import { applyTheme, type Theme } from "@/lib/client";
 import { CURRENCIES } from "@/lib/defaults";
 
@@ -24,6 +25,14 @@ export default function MorePage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [pwMsg, setPwMsg] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>("system");
+  const [queued, setQueued] = useState<ReturnType<typeof readQueue>>([]);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+
+  const refreshQueue = () => setQueued(readQueue());
+
+  useEffect(() => {
+    refreshQueue();
+  }, []);
 
   useEffect(() => {
     api.get<Profile>("/profile").then((p) => {
@@ -124,6 +133,39 @@ export default function MorePage() {
           {pwMsg && <p className="text-sm text-emerald-600">{pwMsg}</p>}
           <button type="submit" className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200">Update password</button>
         </form>
+      </section>
+
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+        <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Offline sync</h2>
+        {queued.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
+            All caught up. Changes made offline sync automatically when you reconnect.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-amber-600 dark:text-amber-400 mb-2">
+              {queued.length} change{queued.length === 1 ? "" : "s"} waiting to sync:
+            </p>
+            <ul className="text-xs text-slate-500 dark:text-slate-400 space-y-1 mb-3 list-disc list-inside">
+              {queued.slice(0, 5).map((w) => (
+                <li key={w.id}>{w.description}</li>
+              ))}
+            </ul>
+            <button
+              onClick={async () => {
+                setSyncMsg("Syncing…");
+                const { sent, remaining } = await syncNow();
+                setSyncMsg(sent > 0 ? `Synced ${sent} change${sent === 1 ? "" : "s"}.` : "Nothing synced — are you online?");
+                refreshQueue();
+                void remaining;
+              }}
+              className="text-sm bg-emerald-600 text-white rounded-lg px-3 py-2 font-medium hover:bg-emerald-700"
+            >
+              Sync now
+            </button>
+          </>
+        )}
+        {syncMsg && <p className="text-sm text-emerald-600 mt-2">{syncMsg}</p>}
       </section>
 
       <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">

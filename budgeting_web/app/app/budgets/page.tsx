@@ -83,13 +83,13 @@ export default function BudgetsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Budgets</h1>
+      <header className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Budgets</h1>
         <button
           onClick={() => setShowAdd(true)}
-          className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition"
+          className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 transition shrink-0 min-h-11"
         >
-          + Add budget
+          + Add
         </button>
       </header>
 
@@ -159,16 +159,16 @@ export default function BudgetsPage() {
                       ? `${formatMoney(-b.remainingCents, currency)} over`
                       : `${formatMoney(b.remainingCents, currency)} left`}
                   </span>
-                  <span className="flex gap-2">
+                  <span className="flex gap-1">
                     <button
                       onClick={() => setEditing(b)}
-                      className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1 rounded hover:bg-slate-100"
+                      className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 min-h-11"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => remove(b.id)}
-                      className="text-xs text-rose-500 hover:text-rose-700 px-2 py-1 rounded hover:bg-rose-50"
+                      className="text-xs text-rose-500 hover:text-rose-700 px-3 py-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 min-h-11"
                     >
                       Delete
                     </button>

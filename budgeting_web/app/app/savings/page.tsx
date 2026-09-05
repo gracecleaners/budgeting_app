@@ -56,11 +56,11 @@ export default function SavingsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Savings & Goals</h1>
         <button
           onClick={() => setShowAdd(true)}
-          className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700"
+          className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 shrink-0 min-h-11"
         >
           + New goal
         </button>
@@ -133,7 +133,7 @@ export default function SavingsPage() {
                   </span>
                   <button
                     onClick={() => setContribGoal(g)}
-                    className="text-xs bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-lg font-medium"
+                    className="text-xs bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-3 py-2.5 rounded-lg font-medium min-h-11"
                   >
                     Contribute / Withdraw
                   </button>

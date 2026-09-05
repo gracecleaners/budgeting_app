@@ -50,10 +50,10 @@ export default function DebtsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Debts</h1>
-        <button onClick={() => setShowAdd(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700">
-          + Add debt
+        <button onClick={() => setShowAdd(true)} className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 shrink-0 min-h-11">
+          + Add
         </button>
       </header>
 
@@ -112,7 +112,7 @@ export default function DebtsPage() {
               </div>
               {d.direction === "owed_by_me" && d.remainingCents > 0 && (
                 <div className="flex justify-end mt-2">
-                  <button onClick={() => setPayDebt(d)} className="text-xs bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-lg font-medium">
+                  <button onClick={() => setPayDebt(d)} className="text-xs bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-3 py-2.5 rounded-lg font-medium min-h-11">
                     Record payment
                   </button>
                 </div>
