@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: budgeting-web
+    env: node
+    region: oregon
+    buildCommand: cd budgeting_web && npm install && npm run build -- --webpack
+    startCommand: cd budgeting_web && node .next/standalone/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DISABLE_PWA
+        value: "1"

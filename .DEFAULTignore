@@ -1,0 +1,6 @@
+node_modules/
+.next/
+.db.sqlite3
+*.pyc
+__pycache__/
+staticfiles/

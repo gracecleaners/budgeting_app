@@ -1,0 +1,39 @@
+# dependencies
+node_modules/
+budgeting_web/node_modules/
+
+# next.js build output
+budgeting_web/.next/
+budgeting_web/out/
+
+# production
+build/
+budgeting_web/build/
+
+# env files — NEVER commit secrets
+.env
+.env.*
+budgeting_web/.env*
+!.env.example
+
+# drizzle metadata
+budgeting_web/drizzle/meta/
+budgeting_web/drizzle/*.lock
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# python
+__pycache__/
+*.pyc
+staticfiles/
+db.sqlite3
+
+# misc
+.DS_Store
+*.tsbuildinfo
+budgeting_web/next-env.d.ts
+.vercel

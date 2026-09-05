@@ -1,0 +1,16 @@
+# Netlify configuration — builds the Next.js app in budgeting_web
+# (frontend + API route handlers deployed as Netlify functions)
+
+[build]
+  base = "budgeting_web"
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# The Next.js runtime (OpenNext adapter) is auto-installed by Netlify on
+# framework detection — no [[plugins]] entry needed.
+#
+# Required environment variable (set in the Netlify UI, NOT here):
+#   DATABASE_URL = <Neon pooled connection string>
