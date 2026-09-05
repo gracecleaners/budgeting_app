@@ -1,66 +1,155 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
-import { api, setCacheUser, clearCache } from "@/lib/api";
+import { api, setCacheUser, clearCache, ApiClientError } from "@/lib/api";
+import { applyTheme, type Theme } from "@/lib/client";
+import { CURRENCIES } from "@/lib/defaults";
 
-type Me = { id: number; name: string; email: string; currency: string; country: string | null };
+type Profile = {
+  id: number;
+  name: string;
+  email: string;
+  currency: string;
+  country: string | null;
+  theme: Theme;
+  monthlyIncomeTargetCents: number | null;
+};
 
 export default function MorePage() {
-  const [me, setMe] = useState<Me | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [form, setForm] = useState({ name: "", currency: "UGX", country: "", monthlyIncomeTarget: "" });
+  const [pw, setPw] = useState({ currentPassword: "", newPassword: "" });
+  const [msg, setMsg] = useState<string | null>(null);
+  const [pwMsg, setPwMsg] = useState<string | null>(null);
+  const [theme, setTheme] = useState<Theme>("system");
 
   useEffect(() => {
-    api.get<Me>("/auth/me").then((u) => {
-      setMe(u);
-      setCacheUser(u.id);
+    api.get<Profile>("/profile").then((p) => {
+      setProfile(p);
+      setCacheUser(p.id);
+      setForm({
+        name: p.name,
+        currency: p.currency,
+        country: p.country ?? "",
+        monthlyIncomeTarget: p.monthlyIncomeTargetCents ? String(p.monthlyIncomeTargetCents / 100) : "",
+      });
+      setTheme(p.theme ?? "system");
     });
   }, []);
 
-  return (
-    <div className="space-y-4 max-w-md">
-      <h1 className="text-2xl font-bold text-slate-900">More</h1>
+  async function saveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    try {
+      await api.patch("/profile", {
+        name: form.name,
+        currency: form.currency,
+        country: form.country || null,
+        monthlyIncomeTarget: form.monthlyIncomeTarget ? Number(form.monthlyIncomeTarget) : null,
+      });
+      setMsg("Profile updated");
+    } catch (err) {
+      setMsg(err instanceof ApiClientError ? err.message : "Failed to update");
+    }
+  }
 
-      <section className="bg-white rounded-2xl border border-slate-200 p-5">
-        <h2 className="font-semibold text-slate-800 mb-2">Profile</h2>
-        {me ? (
-          <dl className="text-sm space-y-1.5">
-            <div className="flex justify-between"><dt className="text-slate-500">Name</dt><dd className="font-medium">{me.name}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Email</dt><dd className="font-medium">{me.email}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Currency</dt><dd className="font-medium">{me.currency}</dd></div>
-            {me.country && <div className="flex justify-between"><dt className="text-slate-500">Country</dt><dd className="font-medium">{me.country}</dd></div>}
-          </dl>
-        ) : (
-          <p className="text-sm text-slate-500">Loading…</p>
-        )}
+  async function saveTheme(next: Theme) {
+    setTheme(next);
+    applyTheme(next);
+    await api.patch("/profile", { theme: next }).catch(() => {});
+  }
+
+  async function changePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwMsg(null);
+    try {
+      await api.post("/auth/password", pw);
+      setPwMsg("Password changed");
+      setPw({ currentPassword: "", newPassword: "" });
+    } catch (err) {
+      setPwMsg(err instanceof ApiClientError ? err.message : "Failed to change password");
+    }
+  }
+
+  const input =
+    "w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg px-3 py-2 text-sm";
+
+  return (
+    <div className="space-y-4 max-w-lg">
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">More</h1>
+
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+        <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">Profile</h2>
+        <form onSubmit={saveProfile} className="space-y-3">
+          {profile && (
+            <p className="text-xs text-slate-400">{profile.email}</p>
+          )}
+          <input aria-label="Full name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={input} placeholder="Full name" />
+          <div className="grid grid-cols-2 gap-3">
+            <select aria-label="Currency" value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))} className={input}>
+              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <input aria-label="Country" value={form.country} onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} className={input} placeholder="Country" />
+          </div>
+          <input aria-label="Monthly income target" type="number" min="0" value={form.monthlyIncomeTarget} onChange={(e) => setForm((f) => ({ ...f, monthlyIncomeTarget: e.target.value }))} className={input} placeholder="Monthly income target (optional)" />
+          {msg && <p className="text-sm text-emerald-600">{msg}</p>}
+          <button type="submit" className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700">Save profile</button>
+        </form>
       </section>
 
-      <section className="bg-white rounded-2xl border border-slate-200 p-5">
-        <h2 className="font-semibold text-slate-800 mb-2">Offline</h2>
-        <p className="text-sm text-slate-500 mb-3">
-          Your dashboard and transactions are cached on this device so you can view them without
-          internet. Changes made offline will sync in a future update.
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+        <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">Appearance</h2>
+        <div className="grid grid-cols-3 gap-2">
+          {(["light", "dark", "system"] as Theme[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => saveTheme(t)}
+              className={`py-2 rounded-lg text-sm font-medium capitalize ${
+                theme === t ? "bg-emerald-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+              }`}
+            >
+              {t === "light" ? "☀️ " : t === "dark" ? "🌙 " : "💻 "}{t}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+        <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">Change password</h2>
+        <form onSubmit={changePassword} className="space-y-3">
+          <input aria-label="Current password" type="password" autoComplete="current-password" required value={pw.currentPassword} onChange={(e) => setPw((p) => ({ ...p, currentPassword: e.target.value }))} className={input} placeholder="Current password" />
+          <input aria-label="New password" type="password" autoComplete="new-password" required minLength={8} value={pw.newPassword} onChange={(e) => setPw((p) => ({ ...p, newPassword: e.target.value }))} className={input} placeholder="New password (min 8 chars)" />
+          {pwMsg && <p className="text-sm text-emerald-600">{pwMsg}</p>}
+          <button type="submit" className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200">Update password</button>
+        </form>
+      </section>
+
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+        <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Data</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
+          Your dashboard, transactions, budgets, and goals are cached on this device for offline viewing.
         </p>
         <button
           onClick={() => {
             clearCache();
             location.reload();
           }}
-          className="text-sm border border-slate-300 rounded-lg px-3 py-2 hover:bg-slate-50"
+          className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200"
         >
           Clear offline cache
         </button>
       </section>
 
-      <section className="bg-white rounded-2xl border border-slate-200 p-5">
-        <h2 className="font-semibold text-slate-800 mb-2">Roadmap</h2>
-        <ul className="text-sm text-slate-500 space-y-1.5 list-disc list-inside">
-          <li>Phase 2 — Budgets with progress & alerts</li>
-          <li>Phase 3 — Savings goals & contributions</li>
-          <li>Phase 4 — Debts, recurring & subscriptions</li>
-          <li>Phase 5 — Analytics, reports & health score</li>
-          <li>Phase 6 — Notifications & reminders</li>
-          <li>Phase 7 — Dark mode & offline sync</li>
-        </ul>
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+        <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">Quick links</h2>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <Link href="/app/accounts" className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200">🏦 Accounts</Link>
+          <Link href="/app/subscriptions" className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200">📺 Subscriptions</Link>
+          <Link href="/app/notifications" className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200">🔔 Notifications</Link>
+          <Link href="/app/reports" className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-200">📈 Reports</Link>
+        </div>
       </section>
     </div>
   );

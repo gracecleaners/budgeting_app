@@ -94,8 +94,8 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Dashboard</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             Total balance {formatMoney(data.totals.total_balance_cents, cur)}
           </p>
         </div>
@@ -103,7 +103,7 @@ export default function DashboardPage() {
           aria-label="Date range"
           value={range}
           onChange={(e) => setRange(e.target.value)}
-          className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white"
+          className="text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg px-3 py-2 bg-white dark:bg-slate-800"
         >
           {RANGES.map((r) => (
             <option key={r.value} value={r.value}>
@@ -211,8 +211,8 @@ export default function DashboardPage() {
       )}
 
       <section className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
-          <h2 className="font-semibold text-slate-800 mb-4">Expenses by category</h2>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+          <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">Expenses by category</h2>
           {data.expenses_by_category.length === 0 ? (
             <p className="text-sm text-slate-500">
               No expenses in this period.{" "}
@@ -241,8 +241,8 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
-          <h2 className="font-semibold text-slate-800 mb-4">Cash flow by month</h2>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+          <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">Cash flow by month</h2>
           {data.cashflow_by_month.length === 0 ? (
             <p className="text-sm text-slate-500">No data yet.</p>
           ) : (
@@ -277,9 +277,9 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="bg-white rounded-2xl border border-slate-200 p-5">
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-slate-800">Accounts</h2>
+          <h2 className="font-semibold text-slate-800 dark:text-slate-100">Accounts</h2>
           <Link href="/app/accounts" className="text-sm text-emerald-600 hover:underline">
             Manage
           </Link>
@@ -295,10 +295,10 @@ export default function DashboardPage() {
         ) : (
           <ul className="grid sm:grid-cols-2 gap-3">
             {data.accounts.map((a) => (
-              <li key={a.id} className="flex items-center gap-3 border border-slate-100 rounded-xl p-3">
+              <li key={a.id} className="flex items-center gap-3 border border-slate-100 dark:border-slate-700 rounded-xl p-3">
                 <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
-                <span className="text-sm text-slate-600 flex-1 truncate">{a.name}</span>
-                <span className="text-sm font-semibold text-slate-800">
+                <span className="text-sm text-slate-600 dark:text-slate-300 flex-1 truncate">{a.name}</span>
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                   {formatMoney(a.balance_cents, cur)}
                 </span>
               </li>
@@ -322,8 +322,8 @@ function SummaryCard({
   tone: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4">
-      <p className="text-xs text-slate-500 uppercase tracking-wide">{label}</p>
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4">
+      <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">{label}</p>
       <p className={`text-lg md:text-xl font-semibold mt-1 ${tone}`}>{formatMoney(cents, currency)}</p>
     </div>
   );

@@ -40,7 +40,7 @@ export default function AccountsPage() {
   return (
     <div className="space-y-4">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Accounts</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Accounts</h1>
         <button
           onClick={() => setShowAdd(true)}
           className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition"
@@ -74,19 +74,19 @@ export default function AccountsPage() {
       ) : (
         <ul className="space-y-3">
           {accounts.map((a) => (
-            <li key={a.id} className="bg-white rounded-2xl border border-slate-200 p-4">
+            <li key={a.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
                   <div className="min-w-0">
-                    <p className="font-medium text-slate-800 truncate">{a.name}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="font-medium text-slate-800 dark:text-slate-100 truncate">{a.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       {ACCOUNT_TYPES.find((t) => t.value === a.type)?.label ?? a.type}
                       {a.institution ? ` · ${a.institution}` : ""}
                     </p>
                   </div>
                 </div>
-                <span className="font-semibold text-slate-800">
+                <span className="font-semibold text-slate-800 dark:text-slate-100">
                   {formatMoney(a.balanceCentsCache, a.currency)}
                 </span>
               </div>
@@ -147,12 +147,12 @@ function AddAccountModal({
   }
 
   const input =
-    "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none";
+    "w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none";
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" role="dialog" aria-modal="true">
-      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">New account</h2>
+      <div className="bg-white dark:bg-slate-800 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">New account</h2>
         <form onSubmit={submit} className="space-y-3">
           {error && <p className="text-sm text-rose-600 bg-rose-50 rounded-lg px-3 py-2">{error}</p>}
           <input

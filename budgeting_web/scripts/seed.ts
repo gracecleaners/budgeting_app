@@ -123,10 +123,59 @@ async function main() {
 
   await db().insert(schema.transactions).values(txs);
 
+  // Budgets (Phase 2)
+  await db().insert(schema.budgets).values([
+    { userId: user.id, name: "Monthly spending cap", categoryId: null, accountId: null, amountCents: toCents(1_200_000), period: "monthly" },
+    { userId: user.id, categoryId: cat("Food"), amountCents: toCents(300_000), period: "monthly" },
+    { userId: user.id, categoryId: cat("Transportation"), amountCents: toCents(150_000), period: "monthly" },
+    { userId: user.id, categoryId: cat("Entertainment"), amountCents: toCents(40_000), period: "monthly" },
+  ]);
+
+  // Savings goals (Phase 3)
+  const nextYear = new Date();
+  nextYear.setFullYear(nextYear.getFullYear() + 1);
+  const goalRows = await db()
+    .insert(schema.savingsGoals)
+    .values([
+      { userId: user.id, name: "Emergency Fund", targetCents: toCents(5_000_000), targetDate: dateKey(nextYear), priority: "high", description: "6 months of expenses" },
+      { userId: user.id, name: "Land purchase", targetCents: toCents(12_000_000), targetDate: null, priority: "medium" },
+    ])
+    .returning();
+  await db().insert(schema.savingsContributions).values([
+    { userId: user.id, goalId: goalRows[0].id, amountCents: toCents(2_750_000), accountId: acc("Savings"), date: daysAgo(90), note: "Initial lump" },
+    { userId: user.id, goalId: goalRows[0].id, amountCents: toCents(400_000), accountId: acc("Savings"), date: daysAgo(35), note: "Monthly transfer" },
+    { userId: user.id, goalId: goalRows[1].id, amountCents: toCents(1_200_000), accountId: acc("Stanbic Bank"), date: daysAgo(60), note: "Start" },
+  ]);
+
+  // Debts (Phase 4)
+  const debtRows = await db()
+    .insert(schema.debts)
+    .values([
+      { userId: user.id, name: "Car Loan", direction: "owed_by_me", originalCents: toCents(20_000_000), remainingCents: toCents(13_500_000), interestRate: "12.50", dueDate: dateKey(new Date(Date.now() + 20 * 86_400_000)), minimumCents: toCents(650_000), lender: "Stanbic Bank", paymentFrequency: "monthly", accountId: acc("Stanbic Bank") },
+      { userId: user.id, name: "Sarah - personal loan", direction: "owed_to_me", originalCents: toCents(500_000), remainingCents: toCents(300_000), dueDate: null, lender: "Sarah", paymentFrequency: "monthly" },
+    ])
+    .returning();
+  await db().insert(schema.debtPayments).values([
+    { userId: user.id, debtId: debtRows[0].id, amountCents: toCents(650_000), accountId: acc("Stanbic Bank"), date: daysAgo(15), note: "Monthly installment" },
+  ]);
+
+  // Subscriptions + recurring (Phase 4)
+  const nextWeek = dateKey(new Date(Date.now() + 5 * 86_400_000));
+  await db().insert(schema.subscriptions).values([
+    { userId: user.id, name: "Netflix", amountCents: toCents(45_000), cycle: "monthly", nextPaymentDate: nextWeek, categoryId: cat("Entertainment"), accountId: acc("MTN Mobile Money") },
+    { userId: user.id, name: "Spotify", amountCents: toCents(15_000), cycle: "monthly", nextPaymentDate: dateKey(new Date(Date.now() + 12 * 86_400_000)), categoryId: cat("Entertainment"), accountId: acc("MTN Mobile Money") },
+    { userId: user.id, name: "Home Internet", amountCents: toCents(150_000), cycle: "monthly", nextPaymentDate: dateKey(new Date(Date.now() + 3 * 86_400_000)), categoryId: cat("Bills"), accountId: acc("Stanbic Bank") },
+  ]);
+  await db().insert(schema.recurringTransactions).values([
+    { userId: user.id, template: { type: "income", amount: 2_000_000, toAccountId: acc("Stanbic Bank"), categoryId: cat("Salary"), description: "Monthly salary" }, frequency: "monthly", nextDate: dateKey(new Date(Date.now() + 18 * 86_400_000)) },
+    { userId: user.id, template: { type: "expense", amount: 600_000, fromAccountId: acc("Stanbic Bank"), categoryId: cat("Housing"), description: "Rent" }, frequency: "monthly", nextDate: dateKey(new Date(Date.now() + 10 * 86_400_000)) },
+  ]);
+
   console.log(`Seeded demo user:
   email:    ${DEMO_EMAIL}
   password: ${DEMO_PASSWORD}
-  accounts: ${accounts.length}, categories: ${cats.length}, transactions: ${txs.length}`);
+  accounts: ${accounts.length}, categories: ${cats.length}, transactions: ${txs.length},
+  budgets: 4, goals: ${goalRows.length}, debts: ${debtRows.length}, subscriptions: 3, recurring: 2`);
 }
 
 main()

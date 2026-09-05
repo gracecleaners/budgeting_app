@@ -3,6 +3,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   serial,
@@ -27,6 +28,9 @@ export const users = pgTable("users", {
   currency: varchar("currency", { length: 3 }).notNull().default("UGX"),
   country: varchar("country", { length: 60 }),
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+  // user preferences (dark mode etc.); null = follow system (spec #31)
+  theme: varchar("theme", { length: 10 }).notNull().default("system"), // light|dark|system
+  monthlyIncomeTargetCents: integer("monthly_income_target_cents"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -114,6 +118,149 @@ export const budgets = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("budgets_user_idx").on(t.userId)]
+);
+
+export const savingsGoals = pgTable(
+  "savings_goals",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    targetCents: integer("target_cents").notNull(),
+    targetDate: date("target_date"),
+    priority: varchar("priority", { length: 10 }).notNull().default("medium"), // low|medium|high
+    description: varchar("description", { length: 500 }),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("savings_goals_user_idx").on(t.userId)]
+);
+
+/** Contribution (positive) or withdrawal (negative) toward a goal. */
+export const savingsContributions = pgTable(
+  "savings_contributions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    goalId: integer("goal_id")
+      .notNull()
+      .references(() => savingsGoals.id, { onDelete: "cascade" }),
+    // positive = into goal, negative = withdrawal back to wallet
+    amountCents: integer("amount_cents").notNull(),
+    accountId: integer("account_id").references(() => accounts.id, {
+      onDelete: "set null",
+    }),
+    date: date("date").notNull(),
+    note: varchar("note", { length: 255 }).notNull().default(""),
+    transactionId: integer("transaction_id").references(() => transactions.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("savings_contrib_goal_idx").on(t.goalId), index("savings_contrib_user_idx").on(t.userId)]
+);
+
+export const debts = pgTable(
+  "debts",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    // money I owe (liability) or money owed to me (asset)
+    direction: varchar("direction", { length: 10 }).notNull().default("owed_by_me"), // owed_by_me | owed_to_me
+    originalCents: integer("original_cents").notNull(),
+    remainingCents: integer("remaining_cents").notNull(),
+    interestRate: numeric("interest_rate", { precision: 5, scale: 2 }),
+    dueDate: date("due_date"),
+    minimumCents: integer("minimum_cents"),
+    lender: varchar("lender", { length: 120 }),
+    paymentFrequency: varchar("payment_frequency", { length: 15 }).notNull().default("monthly"),
+    accountId: integer("account_id").references(() => accounts.id, { onDelete: "set null" }),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("debts_user_idx").on(t.userId)]
+);
+
+/** Payment against a debt; writes a debt_payment transaction. */
+export const debtPayments = pgTable(
+  "debt_payments",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    debtId: integer("debt_id")
+      .notNull()
+      .references(() => debts.id, { onDelete: "cascade" }),
+    amountCents: integer("amount_cents").notNull(),
+    accountId: integer("account_id").references(() => accounts.id, { onDelete: "set null" }),
+    date: date("date").notNull(),
+    note: varchar("note", { length: 255 }).notNull().default(""),
+    transactionId: integer("transaction_id").references(() => transactions.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("debt_payments_debt_idx").on(t.debtId)]
+);
+
+export const recurringTransactions = pgTable(
+  "recurring_transactions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    template: jsonb("template").notNull(), // payload matching the transaction create schema
+    frequency: varchar("frequency", { length: 15 }).notNull(), // daily|weekly|monthly|quarterly|yearly
+    nextDate: date("next_date").notNull(),
+    lastRunDate: date("last_run_date"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("recurring_user_next_idx").on(t.userId, t.nextDate)]
+);
+
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    cycle: varchar("cycle", { length: 15 }).notNull().default("monthly"), // monthly|yearly|weekly|quarterly
+    nextPaymentDate: date("next_payment_date").notNull(),
+    categoryId: integer("category_id").references(() => categories.id, { onDelete: "set null" }),
+    accountId: integer("account_id").references(() => accounts.id, { onDelete: "set null" }),
+    status: varchar("status", { length: 10 }).notNull().default("active"), // active|paused|cancelled
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("subscriptions_user_idx").on(t.userId)]
+);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    level: varchar("level", { length: 10 }).notNull().default("info"), // info|warning|critical
+    title: varchar("title", { length: 160 }).notNull(),
+    body: varchar("body", { length: 500 }).notNull().default(""),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("notifications_user_idx").on(t.userId, t.createdAt)]
 );
 
 export const transactions = pgTable(

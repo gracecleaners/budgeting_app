@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { api, formatMoney, formatDateKey, ApiClientError } from "@/lib/api";
 
@@ -41,6 +42,7 @@ export default function TransactionsPage() {
   const [type, setType] = useState("");
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const searchParams = useSearchParams();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,7 +63,9 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     load();
-  }, [load]);
+    // support the quick-add FAB: /app/transactions?add=1 opens the modal
+    if (searchParams.get("add") === "1") setShowAdd(true);
+  }, [load, searchParams]);
 
   useEffect(() => {
     (async () => {
@@ -84,7 +88,7 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-slate-900">Transactions</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Transactions</h1>
         <button
           onClick={() => setShowAdd(true)}
           className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition"
@@ -102,7 +106,7 @@ export default function TransactionsPage() {
           }}
           placeholder="Search description, merchant..."
           aria-label="Search transactions"
-          className="flex-1 min-w-48 border border-slate-300 rounded-lg px-3 py-2 text-sm"
+          className="flex-1 min-w-40 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg px-3 py-2 text-sm"
         />
         <select
           value={type}
@@ -111,7 +115,7 @@ export default function TransactionsPage() {
             setPage(1);
           }}
           aria-label="Filter by type"
-          className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
+          className="border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg px-3 py-2 text-sm"
         >
           <option value="">All types</option>
           {["income", "expense", "transfer", "savings", "debt_payment", "investment"].map((t) => (
@@ -148,7 +152,7 @@ export default function TransactionsPage() {
         </div>
       ) : (
         <>
-          <ul className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
+          <ul className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
             {list.items.map((tx) => (
               <li key={tx.id} className="flex items-center justify-between gap-3 p-4">
                 <div className="min-w-0">
@@ -274,12 +278,12 @@ function AddTxModal({
   }
 
   const input =
-    "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none";
+    "w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none";
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" role="dialog" aria-modal="true">
-      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-6 shadow-xl max-h-[90dvh] overflow-y-auto">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">Add transaction</h2>
+      <div className="bg-white dark:bg-slate-800 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-6 shadow-xl max-h-[90dvh] overflow-y-auto">
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Add transaction</h2>
         <div className="grid grid-cols-3 gap-2 mb-4">
           {(["expense", "income", "transfer"] as const).map((t) => (
             <button
