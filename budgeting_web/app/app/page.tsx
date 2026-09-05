@@ -33,6 +33,11 @@ type DashboardData = {
     percent: number;
     status: string;
   } | null;
+  savings: {
+    totalSavedCents: number;
+    totalTargetCents: number;
+    goals: { id: number; name: string; savedCents: number; targetCents: number; percent: number }[];
+  };
   meta: { currency: string };
 };
 
@@ -55,8 +60,9 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const json = await api.get<{ data: DashboardData }>(`/dashboard?range=${r}`);
-      setData(json.data);
+      // api.get already unwraps the { success, data } envelope
+      const data = await api.get<DashboardData>(`/dashboard?range=${r}`);
+      setData(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     } finally {
@@ -147,7 +153,7 @@ export default function DashboardPage() {
       )}
 
       {data.budget_utilization && (
-        <section className="bg-white rounded-2xl border border-slate-200 p-5">
+        <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-slate-800">Budget utilization</h2>
             <Link href="/app/budgets" className="text-sm text-emerald-600 hover:underline">
@@ -209,6 +215,55 @@ export default function DashboardPage() {
           )}
         </section>
       )}
+
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-slate-800 dark:text-slate-100">Savings</h2>
+          <Link href="/app/savings" className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline">
+            Manage goals
+          </Link>
+        </div>
+        {data.savings.goals.length === 0 ? (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Not saving toward anything yet. Set a goal — an emergency fund is a great start.
+            </p>
+            <Link
+              href="/app/savings"
+              className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 shrink-0 min-h-11 flex items-center"
+            >
+              + New goal
+            </Link>
+          </div>
+        ) : (
+          <>
+            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              {formatMoney(data.savings.totalSavedCents, cur)}
+            </p>
+            <p className="text-xs text-slate-400 mt-0.5 mb-3">
+              saved of {formatMoney(data.savings.totalTargetCents, cur)} total goals
+            </p>
+            <ul className="space-y-2">
+              {data.savings.goals.map((g) => (
+                <li key={g.id} className="text-sm">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-slate-600 dark:text-slate-300 truncate">{g.name}</span>
+                    <span className="text-slate-500 dark:text-slate-400 shrink-0 ml-2">
+                      {Math.round(g.percent)}%
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${g.percent}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
 
       <section className="grid md:grid-cols-2 gap-4">
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">

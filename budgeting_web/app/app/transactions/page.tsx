@@ -255,7 +255,7 @@ function AddTxModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
-  const [type, setType] = useState<"income" | "expense" | "transfer">("expense");
+  const [type, setType] = useState<"income" | "expense" | "transfer" | "savings">("expense");
   const [form, setForm] = useState({
     amount: "",
     categoryId: "",
@@ -281,7 +281,7 @@ function AddTxModal({
       description: form.description,
     };
     if (type === "income") payload.toAccountId = Number(form.toAccountId);
-    if (type === "expense") payload.fromAccountId = Number(form.fromAccountId);
+    if (type === "expense" || type === "savings") payload.fromAccountId = Number(form.fromAccountId);
     if (type === "transfer") {
       payload.fromAccountId = Number(form.fromAccountId);
       payload.toAccountId = Number(form.toAccountId);
@@ -305,17 +305,17 @@ function AddTxModal({
     <div className="fixed inset-0 bg-slate-900/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" role="dialog" aria-modal="true">
       <div className="bg-white dark:bg-slate-800 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-6 shadow-xl max-h-[90dvh] overflow-y-auto">
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Add transaction</h2>
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {(["expense", "income", "transfer"] as const).map((t) => (
+        <div className="grid grid-cols-4 gap-1.5 mb-4">
+          {(["expense", "income", "savings", "transfer"] as const).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setType(t)}
               className={`py-2 rounded-lg text-sm font-medium capitalize ${
-                type === t ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"
+                type === t ? "bg-emerald-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
               }`}
             >
-              {t}
+              {t === "savings" ? "save" : t}
             </button>
           ))}
         </div>
@@ -332,7 +332,7 @@ function AddTxModal({
             onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
             className={input}
           />
-          {type === "expense" && (
+          {(type === "expense" || type === "savings") && (
             <select
               required
               aria-label="From account"
@@ -340,7 +340,7 @@ function AddTxModal({
               onChange={(e) => setForm((f) => ({ ...f, fromAccountId: e.target.value }))}
               className={input}
             >
-              <option value="">From account</option>
+              <option value="">{type === "savings" ? "Save from account" : "From account"}</option>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -396,7 +396,7 @@ function AddTxModal({
               </select>
             </>
           )}
-          {type !== "transfer" && (
+          {(type === "income" || type === "expense") && (
             <select
               aria-label="Category"
               value={form.categoryId}

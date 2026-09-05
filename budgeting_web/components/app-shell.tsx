@@ -11,7 +11,7 @@ const NAV = [
   { href: "/app", label: "Dashboard", icon: "🏠", mobile: true },
   { href: "/app/transactions", label: "Transactions", icon: "💳", mobile: true },
   { href: "/app/budgets", label: "Budgets", icon: "📊", mobile: true },
-  { href: "/app/savings", label: "Savings", icon: "🎯", mobile: false },
+  { href: "/app/savings", label: "Savings", icon: "🎯", mobile: true },
   { href: "/app/debts", label: "Debts", icon: "💸", mobile: false },
   { href: "/app/subscriptions", label: "Subscriptions", icon: "📺", mobile: false },
   { href: "/app/reports", label: "Reports", icon: "📈", mobile: false },

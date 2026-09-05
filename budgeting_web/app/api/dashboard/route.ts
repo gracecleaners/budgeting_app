@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       to: url.searchParams.get("to") ?? undefined,
     });
 
-    const [accountRows, allTx] = await Promise.all([
+    const [accountRows, allTx, goalRows, contribRows] = await Promise.all([
       db()
         .select()
         .from(schema.accounts)
@@ -38,7 +38,16 @@ export async function GET(request: Request) {
       db()
         .select()
         .from(schema.transactions)
-        .where(and(eq(schema.transactions.userId, user.id), isNull(schema.transactions.deletedAt))),    ]);
+        .where(and(eq(schema.transactions.userId, user.id), isNull(schema.transactions.deletedAt))),
+      db()
+        .select()
+        .from(schema.savingsGoals)
+        .where(and(eq(schema.savingsGoals.userId, user.id), eq(schema.savingsGoals.archived, false))),
+      db()
+        .select({ goalId: schema.savingsContributions.goalId, amountCents: schema.savingsContributions.amountCents })
+        .from(schema.savingsContributions)
+        .where(eq(schema.savingsContributions.userId, user.id)),
+    ]);
 
     const accountLikes: AccountLike[] = accountRows.map((a) => ({
       id: a.id,
@@ -89,6 +98,26 @@ export async function GET(request: Request) {
 
     // upcoming bills placeholder: expense transactions marked recurring this month
     const thisMonth = monthBounds(todayKey());
+
+    // Savings summary: net contributions per goal (withdrawals are negative)
+    const savedByGoal = new Map<number, number>();
+    for (const c of contribRows) {
+      savedByGoal.set(c.goalId, (savedByGoal.get(c.goalId) ?? 0) + c.amountCents);
+    }
+    const goalSummaries = goalRows
+      .map((g) => {
+        const saved = savedByGoal.get(g.id) ?? 0;
+        return {
+          id: g.id,
+          name: g.name,
+          savedCents: saved,
+          targetCents: g.targetCents,
+          percent: g.targetCents > 0 ? Math.min(100, Math.round((saved / g.targetCents) * 1000) / 10) : 0,
+        };
+      })
+      .sort((a, b) => b.percent - a.percent);
+    const totalSavedCents = contribRows.reduce((a, c) => a + c.amountCents, 0);
+    const totalTargetCents = goalRows.reduce((a, g) => a + g.targetCents, 0);
 
     // Budget utilization + alerts (Phase 2)
     const budgets = await loadBudgetProgress(user.id);
@@ -149,6 +178,11 @@ export async function GET(request: Request) {
               status: utilization.status,
             }
           : null,
+        savings: {
+          totalSavedCents,
+          totalTargetCents,
+          goals: goalSummaries.slice(0, 4),
+        },
         meta: {
           currency: user.currency,
           current_month: thisMonth,
