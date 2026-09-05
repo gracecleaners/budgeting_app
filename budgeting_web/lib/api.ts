@@ -1,133 +1,106 @@
-// The API now lives in this app's own /api routes (Netlify functions).
-// Override only if you run the API somewhere else.
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+/**
+ * API client for the new envelope format ({ success, data, message }) with a
+ * per-user localStorage read cache for offline viewing (spec: offline reads).
+ * Offline writes will come with the sync phase.
+ */
 
-type ApiClient = {
-  get<T>(path: string): Promise<T>;
-  post<T>(path: string, body: unknown): Promise<T>;
-  patch<T>(path: string, body: unknown): Promise<T>;
-  delete<T>(path: string): Promise<T>;
-};
+const BASE = "/api";
+const CACHE_KEY = "fin_offline_cache_v2";
 
-const localStorageKey = "budget_offline_cache";
+export type ApiEnvelope<T> = { success: boolean; data: T; message: string | null };
 
-function getCached(path: string): unknown {
-  if (typeof window === "undefined") return null;
+export class ApiClientError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function cacheKey(): string {
+  // isolate cache per logged-in user so data never leaks across accounts
+  return `${CACHE_KEY}:${localStorage.getItem("fin_user_id") ?? "anon"}`;
+}
+
+export function setCacheUser(userId: number | null): void {
+  if (userId === null) localStorage.removeItem("fin_user_id");
+  else localStorage.setItem("fin_user_id", String(userId));
+}
+
+function readCache(path: string): unknown {
   try {
-    const raw = localStorage.getItem(localStorageKey);
+    const raw = localStorage.getItem(cacheKey());
     if (!raw) return null;
     const store: Record<string, { ts: number; data: unknown }> = JSON.parse(raw);
-    const entry = store[path];
-    if (entry && Date.now() - entry.ts < 5 * 60 * 1000) {
-      return entry.data;
-    }
+    return store[path]?.data ?? null;
   } catch {
-    // ignore corrupt storage
+    return null;
   }
-  return null;
 }
 
-function setCached(path: string, data: unknown) {
-  if (typeof window === "undefined") return;
+function writeCache(path: string, data: unknown): void {
   try {
-    const raw = localStorage.getItem(localStorageKey);
-    const store: Record<string, { ts: number; data: unknown }> = raw
-      ? JSON.parse(raw)
-      : {};
+    const raw = localStorage.getItem(cacheKey());
+    const store: Record<string, { ts: number; data: unknown }> = raw ? JSON.parse(raw) : {};
     store[path] = { ts: Date.now(), data };
-    localStorage.setItem(localStorageKey, JSON.stringify(store));
+    localStorage.setItem(cacheKey(), JSON.stringify(store));
   } catch {
-    // ignore write failures
+    // storage full/corrupt: cache is best-effort
   }
 }
 
-function offlineFallback<T>(path: string, cached: unknown): T {
-  if (cached === null) {
-    throw new Error(`Offline: no cached data for ${path}`);
-  }
-  return cached as T;
-}
-
-async function fetchApi<T>(
-  method: "GET" | "POST" | "PATCH" | "DELETE",
-  path: string,
-  body?: unknown
-): Promise<T> {
-  const url = `${BASE}${path}`;
-  const opts: RequestInit = {
-    method,
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
-  };
-  if (body) {
-    opts.body = JSON.stringify(body);
-  }
-
+export function clearCache(): void {
   try {
-    const res = await fetch(url, opts);
-    if (!res.ok) {
-      throw new Error(`API error ${res.status}: ${res.statusText}`);
+    localStorage.removeItem(cacheKey());
+  } catch {
+    // ignore
+  }
+}
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      method,
+      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      credentials: "same-origin",
+    });
+    const json = (await res.json()) as ApiEnvelope<T>;
+    if (!res.ok || !json.success) {
+      throw new ApiClientError(res.status, json.message ?? `Request failed (${res.status})`);
     }
-    const data: T = await res.json();
-    if (method === "GET") {
-      setCached(path, data);
-    }
-    return data;
+    if (method === "GET") writeCache(path, json);
+    return json.data;
   } catch (err) {
-    const cached = getCached(path);
-    if (cached !== null) {
-      return offlineFallback<T>(path, cached);
+    // offline fallback for GETs: serve last-seen data (read-only offline)
+    if (err instanceof TypeError && method === "GET") {
+      const cached = readCache(path);
+      if (cached !== null) return (cached as ApiEnvelope<T>).data;
     }
     throw err;
   }
 }
 
-export const api: ApiClient = {
-  get: (path) => fetchApi<any>("GET", path),
-  post: (path, body) => fetchApi<any>("POST", path, body),
-  patch: (path, body) => fetchApi<any>("PATCH", path, body),
-  delete: (path) => fetchApi<any>("DELETE", path),
+export const api = {
+  get: <T>(path: string) => request<T>("GET", path),
+  post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
+  patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, body),
+  delete: <T>(path: string) => request<T>("DELETE", path),
 };
 
-export type Category = {
-  id: number;
-  name: string;
-  color: string;
-  created_at: string;
-  spent: number;
-};
+export function formatMoney(cents: number, currency = "UGX"): string {
+  const abs = Math.abs(cents) / 100;
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: abs % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(abs);
+  return `${currency} ${cents < 0 ? "-" : ""}${formatted}`;
+}
 
-export type Budget = {
-  id: number;
-  category: Category;
-  category_id: number;
-  amount: number;
-  period: string;
-  created_at: string;
-  updated_at: string;
-  progress: {
-    amount: number;
-    spent: number;
-    remaining: number;
-    percent: number;
-  };
-};
-
-export type Transaction = {
-  id: number;
-  category: Category;
-  category_id: number;
-  amount: number;
-  type: "income" | "expense";
-  date: string;
-  note: string;
-  created_at: string;
-};
-
-export type Summary = {
-  total_income: number;
-  total_expenses: number;
-  net: number;
-  months_tracked: number;
-  average_monthly_expense: number;
-};
+export function formatDateKey(dateKey: string): string {
+  return new Date(`${dateKey}T00:00:00`).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}

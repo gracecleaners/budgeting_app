@@ -1,19 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import Script from "next/script";
-
-// Geist was previously loaded via next/font/google, which fetches fonts at
-// build time and breaks on Netlify when Google rate-limits build servers.
-// A system font stack keeps builds hermetic. To restore Geist, self-host
-// it with next/font/local instead.
-const systemFontStack =
-  "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
-const monoFontStack =
-  "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
 
 export const metadata: Metadata = {
   title: "Budget Tracker",
-  description: "Personal budgeting app that works offline and as a mobile app",
+  description: "Personal finance management that works offline and as a mobile app",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -22,22 +12,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      style={
-        {
-          "--font-geist-sans": systemFontStack,
-          "--font-geist-mono": monoFontStack,
-        } as React.CSSProperties
-      }
-      className="h-full antialiased"
-    >
-      <meta name="theme-color" content="#0f172a" />
-      <link rel="icon" href="/icons/icon-192.svg" type="image/svg+xml" />
-      <body className="min-h-full flex flex-col">{children}</body>
-      <Script src="/sw.js" strategy="beforeInteractive" />
+    <html lang="en" className="h-full antialiased">
+      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">{children}</body>
     </html>
   );
 }

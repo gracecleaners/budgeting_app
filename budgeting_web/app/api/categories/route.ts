@@ -1,32 +1,64 @@
-import { asc } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 import { ApiError, handle, readJson } from "@/lib/http";
-import { serializeCategory, spentByCategory } from "@/lib/serialize";
-
-const { categories } = schema;
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+const createSchema = z.object({
+  name: z.string().min(1).max(100),
+  kind: z.enum(["income", "expense"]).default("expense"),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+});
+
+export async function GET(request: Request) {
   return handle(async () => {
-    const [rows, spent] = await Promise.all([
-      db().select().from(categories).orderBy(asc(categories.name)),
-      spentByCategory(),
-    ]);
-    return Response.json(rows.map((row) => serializeCategory(row, spent.get(row.id) ?? 0)));
+    const user = await requireUser();
+    const kind = new URL(request.url).searchParams.get("kind");
+    const conds = [eq(schema.categories.userId, user.id), eq(schema.categories.archived, false)];
+    if (kind === "income" || kind === "expense") conds.push(eq(schema.categories.kind, kind));
+
+    const rows = await db()
+      .select({
+        id: schema.categories.id,
+        name: schema.categories.name,
+        kind: schema.categories.kind,
+        color: schema.categories.color,
+        spentCents: sql<number>`(
+          select coalesce(sum(t.amount_cents), 0) from transactions t
+          where t.category_id = ${schema.categories.id} and t.type = 'expense' and t.deleted_at is null
+        )`,
+      })
+      .from(schema.categories)
+      .where(and(...conds))
+      .orderBy(asc(schema.categories.name));
+
+    return Response.json({
+      success: true,
+      data: rows.map((r) => ({ ...r, spentCents: Number(r.spentCents) })),
+      message: null,
+    });
   });
 }
 
 export async function POST(request: Request) {
   return handle(async () => {
-    const body = await readJson(request);
-    const b = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
-    const name = typeof b.name === "string" ? b.name.trim() : "";
-    const color = typeof b.color === "string" && /^#[0-9a-fA-F]{6}$/.test(b.color) ? b.color : "#ffffff";
-    if (!name) throw new ApiError(400, "name is required");
-    if (name.length > 100) throw new ApiError(400, "name must be at most 100 characters");
-    const [row] = await db().insert(categories).values({ name, color }).returning();
-    return Response.json(serializeCategory(row, 0), { status: 201 });
+    const user = await requireUser();
+    const body = createSchema.parse(await readJson(request));
+    const [row] = await db()
+      .insert(schema.categories)
+      .values({
+        userId: user.id,
+        name: body.name.trim(),
+        kind: body.kind,
+        color: body.color,
+      })
+      .returning();
+    return Response.json(
+      { success: true, data: row, message: "Category created" },
+      { status: 201 }
+    );
   });
 }
