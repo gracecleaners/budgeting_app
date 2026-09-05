@@ -9,8 +9,12 @@
 [build.environment]
   NODE_VERSION = "22"
 
-# The Next.js runtime (OpenNext adapter) is auto-installed by Netlify on
-# framework detection — no [[plugins]] entry needed.
-#
+# The Next.js runtime is installed as a dev dependency
+# (@netlify/plugin-nextjs) and loaded explicitly below — required in
+# monorepos where auto-detection can miss the app in budgeting_web/.
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
 # Required environment variable (set in the Netlify UI, NOT here):
 #   DATABASE_URL = <Neon pooled connection string>

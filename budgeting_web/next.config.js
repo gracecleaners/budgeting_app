@@ -18,7 +18,7 @@ const withPWA = require("next-pwa")({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'standalone',
+  // NOTE: no `output: 'standalone'` — unsupported by Netlify's OpenNext adapter
 };
 
 module.exports = withPWA(nextConfig);
